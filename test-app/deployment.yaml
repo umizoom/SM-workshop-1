@@ -30,9 +30,9 @@ spec:
         app: test-app
     spec:
       containers:
-      - image: ghcr.io/example/test-app:latest
-        imagePullPolicy: Always
-        name: test-app
-        ports:
-        - containerPort: 4000
-        resources: {}
+        - image: ghcr.io/umizoom/test-app:latest
+          imagePullPolicy: Always
+          name: test-app
+          ports:
+            - containerPort: 4000
+          resources: {}

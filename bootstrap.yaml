@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/example/repo
+    repoURL: https://github.com/umizoom/SM-workshop-1
     path: apps
     targetRevision: main
   destination:
