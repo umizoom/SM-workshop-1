@@ -1,0 +1,99 @@
+name: Setup Repository
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+  setup:
+    name: "Setup Repository"
+    runs-on: ubuntu-latest
+    env:
+      REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+      CONTAINER_IMAGE: ghcr.io/${{ github.repository_owner }}/test-app:latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update repository URLs in ArgoCD applications
+        run: |
+          echo "Updating repository URLs in configuration files..."
+          
+          # Update bootstrap.yaml
+          yq eval '(select(.kind == "Application") | .spec.source.repoURL) = "${{ env.REPO_URL }}"' -i bootstrap.yaml
+          echo "✓ Updated bootstrap.yaml"
+          
+          # Update apps/test-app.yaml
+          yq eval '.spec.source.repoURL = "${{ env.REPO_URL }}"' -i apps/test-app.yaml
+          echo "✓ Updated apps/test-app.yaml"
+          
+      - name: Update container image references
+        run: |
+          echo "Updating container image references..."
+          
+          # Update test-app/deployment.yaml
+          yq eval '(select(.kind == "Deployment") | .spec.template.spec.containers[] | select(.name == "test-app") | .image) = "${{ env.CONTAINER_IMAGE }}"' -i test-app/deployment.yaml
+          echo "✓ Updated test-app/deployment.yaml"
+
+      - name: Verify changes
+        run: |
+          echo "Verifying all changes were applied correctly..."
+          echo ""
+          echo "=== Repository URLs ==="
+          echo "bootstrap.yaml: $(yq eval 'select(.kind == "Application") | .spec.source.repoURL' bootstrap.yaml)"
+          echo "apps/test-app.yaml: $(yq eval '.spec.source.repoURL' apps/test-app.yaml)"
+          echo ""
+          echo "=== Container Image ==="
+          echo "test-app/deployment.yaml: $(yq eval 'select(.kind == "Deployment") | .spec.template.spec.containers[] | select(.name == "test-app") | .image' test-app/deployment.yaml)"
+          echo ""
+          echo "Setup completed successfully! 🎉"
+
+      - name: Create pull request with changes
+        id: create_pr
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Setup repository: Update repoUrl to '${{ env.REPO_URL }}', and container image to '${{ env.CONTAINER_IMAGE }}'"
+          title: "🚀 Setup Repository Configuration"
+          body: |
+            ## Repository Setup Complete!
+
+            This pull request configures your repository copy with your custom settings.
+
+            ### Configuration Applied:
+            - **Repository URL:** `${{ env.REPO_URL }}` (auto-detected)
+            - **Container Image:** `${{ env.CONTAINER_IMAGE }}` (auto-detected)
+
+            ### Files Updated:
+            - `bootstrap.yaml` - Updated repository URL
+            - `apps/test-app.yaml` - Updated repository URL
+            - `test-app/deployment.yaml` - Updated container image reference
+
+            ### Next Steps:
+            1. Review the changes in this pull request
+            2. Merge this PR when you're satisfied with the configuration
+            3. Your repository will be ready to use with ArgoCD!
+
+            ---
+            *This pull request was automatically created by the Setup Repository Template action.*
+          branch: setup/configure-repository
+          delete-branch: true
+          base: main
+
+      - name: Display result
+        run: |
+          if [[ "${{ steps.create_pr.outputs.pull-request-number }}" ]]; then
+            echo "✅ Pull request #${{ steps.create_pr.outputs.pull-request-number }} created successfully!"
+            echo "🔗 View it here: ${{ steps.create_pr.outputs.pull-request-url }}"
+            echo ""
+            echo "Repository configured with:"
+            echo "  • GraphRef: ${{ github.event.inputs.graphRef }}"
+            echo "  • Repository URL: ${{ env.REPO_URL }} (auto-detected)"
+          else
+            echo "ℹ️  No changes needed - repository is already configured with these values."
+          fi
